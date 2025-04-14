@@ -1,6 +1,12 @@
 # Ankit's Python 🐍 Projects
 
-Welcome to my collection of Python projects! This repo contains various games, utilities, and scripts built using Python, Tkinter, Pygame, and SQLite.
+Welcome to my collection of **Python projects**!  
+This repo contains various **games**, **utilities**, and **scripts** built using:
+
+- 🐍 Python
+- 🖼 Tkinter (GUI)
+- 🎮 Pygame
+- 🗃 SQLiteis repo contains various games, utilities, and scripts built using Python, Tkinter, Pygame, and SQLite.
 
 ## 📁 Project Structure
 
@@ -13,6 +19,23 @@ ankitpoddar07-python-projects/ ├── Games │ ├── snake-Game.py │ �
 - 📧 `email-sender.py` – Send emails using SMTP in Python.
 - 🛜 `wifi-password.py` – Retrieve saved WiFi passwords on your PC.
 - 🎰 `slot-machine-game/` – A complete game with GUI and assets.
+
+  ---
+
+## 🎯 Project Highlights
+
+| Project Name          | Description                                 |
+|-----------------------|---------------------------------------------|
+| `snake-Game.py`       | Classic snake game built with Pygame        |
+| `email-sender.py`     | Send emails using SMTP                      |
+| `quiz-Game.py`        | Multiple choice quiz app                    |
+| `wifi-password.py`    | Retrieve saved WiFi passwords on Windows    |
+| `parking-management-System.py` | CLI-based parking space tracker    |
+| `slot-machine-game/`  | Complete GUI-based slot machine project     |
+| `music-player.py`     | MP3 player using Tkinter and Pygame Mixer   |
+| `bouncing-ball.py`    | Fun bouncing animation using Pygame         |
+
+---
 
 ## 🛠 Tech Stack
 
