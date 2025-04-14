@@ -1,0 +1,511 @@
+from tkinter import *
+import random
+import os
+from tkinter import messagebox
+import sqlite3
+from datetime import datetime
+
+class Bill_App:
+    def __init__(self, root):
+        self.root = root
+        self.root.geometry("1350x700+0+0")
+        self.root.title("Billing Software")
+        
+        # Database setup
+        self.conn = sqlite3.connect('billing_database.db')
+        self.create_tables()
+        
+        # Color scheme
+        self.bg_color = "#badc57"
+        self.entry_bg = "#f0f0f0"
+        self.button_bg = "#535C68"
+        self.button_fg = "white"
+        
+        # Title
+        title = Label(self.root, text="Billing Software", font=('times new roman', 30, 'bold'), 
+                     pady=2, bd=12, bg=self.bg_color, fg="Black", relief=GROOVE)
+        title.pack(fill=X)
+        
+        # Variables
+        self.setup_variables()
+        
+        # Customer Details Frame
+        self.create_customer_frame()
+        
+        # Product Frames (Medical, Grocery, Cold Drinks)
+        self.create_product_frames()
+        
+        # Bill Area
+        self.create_bill_area()
+        
+        # Buttons and Totals Frame
+        self.create_totals_frame()
+        
+        self.welcome_bill()
+
+    def setup_variables(self):
+        # Product quantities
+        self.sanitizer = IntVar()
+        self.mask = IntVar()
+        self.hand_gloves = IntVar()
+        self.dettol = IntVar()
+        self.newsprin = IntVar()
+        self.thermal_gun = IntVar()
+        
+        self.rice = IntVar()
+        self.food_oil = IntVar()
+        self.wheat = IntVar()
+        self.daal = IntVar()
+        self.flour = IntVar()
+        self.maggi = IntVar()
+        
+        self.sprite = IntVar()
+        self.limka = IntVar()
+        self.mazza = IntVar()
+        self.coke = IntVar()
+        self.fanta = IntVar()
+        self.mountain_duo = IntVar()
+        
+        # Prices and taxes
+        self.medical_price = StringVar()
+        self.grocery_price = StringVar()
+        self.cold_drinks_price = StringVar()
+        
+        self.medical_tax = StringVar()
+        self.grocery_tax = StringVar()
+        self.cold_drinks_tax = StringVar()
+        
+        # Customer info
+        self.c_name = StringVar()
+        self.c_phone = StringVar()
+        self.bill_no = StringVar()
+        x = random.randint(1000, 9999)
+        self.bill_no.set(str(x))
+        self.search_bill = StringVar()
+        
+        # Initialize prices
+        self.medical_price.set("")
+        self.grocery_price.set("")
+        self.cold_drinks_price.set("")
+        self.medical_tax.set("")
+        self.grocery_tax.set("")
+        self.cold_drinks_tax.set("")
+
+    def create_tables(self):
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS bills (
+                bill_no INTEGER PRIMARY KEY,
+                customer_name TEXT,
+                phone TEXT,
+                date TEXT,
+                bill_data TEXT,
+                total_amount REAL
+            )
+        ''')
+        self.conn.commit()
+
+    def create_customer_frame(self):
+        F1 = LabelFrame(self.root, text="Customer Details", font=('times new roman', 15, 'bold'), 
+                       bd=10, fg="Black", bg=self.bg_color)
+        F1.place(x=0, y=80, relwidth=1)
+        
+        # Customer Name
+        cname_lbl = Label(F1, text="Customer Name:", bg=self.bg_color, 
+                         font=('times new roman', 15, 'bold'))
+        cname_lbl.grid(row=0, column=0, padx=10, pady=5, sticky='w')
+        cname_txt = Entry(F1, width=20, textvariable=self.c_name, 
+                         font='arial 15', bd=7, relief=GROOVE, bg=self.entry_bg)
+        cname_txt.grid(row=0, column=1, pady=5, padx=5, sticky='w')
+        
+        # Customer Phone
+        cphn_lbl = Label(F1, text="Customer Phone:", bg=self.bg_color, 
+                         font=('times new roman', 15, 'bold'))
+        cphn_lbl.grid(row=0, column=2, padx=10, pady=5, sticky='w')
+        cphn_txt = Entry(F1, width=20, textvariable=self.c_phone, 
+                         font='arial 15', bd=7, relief=GROOVE, bg=self.entry_bg)
+        cphn_txt.grid(row=0, column=3, pady=5, padx=5, sticky='w')
+        
+        # Bill Number
+        c_bill_lbl = Label(F1, text="Bill Number:", bg=self.bg_color, 
+                          font=('times new roman', 15, 'bold'))
+        c_bill_lbl.grid(row=0, column=4, padx=10, pady=5, sticky='w')
+        c_bill_txt = Entry(F1, width=15, textvariable=self.search_bill, 
+                          font='arial 15', bd=7, relief=GROOVE, bg=self.entry_bg)
+        c_bill_txt.grid(row=0, column=5, pady=5, padx=5, sticky='w')
+        
+        # Search Button
+        bil_btn = Button(F1, text="Search", command=self.find_bill, width=10, bd=7, 
+                        font=('arial', 12, 'bold'), relief=GROOVE, bg=self.button_bg, fg=self.button_fg)
+        bil_btn.grid(row=0, column=6, pady=5, padx=10)
+        
+        # View All Bills Button
+        view_btn = Button(F1, text="View All Bills", command=self.view_all_bills, width=12, bd=7, 
+                         font=('arial', 12, 'bold'), relief=GROOVE, bg=self.button_bg, fg=self.button_fg)
+        view_btn.grid(row=0, column=7, pady=5, padx=10)
+
+    def create_product_frames(self):
+        # Common settings for product frames
+        frame_width = 320
+        frame_height = 380
+        entry_width = 8
+        
+        # Medical Frame
+        F2 = LabelFrame(self.root, text="Medical Purpose", font=('times new roman', 15, 'bold'), 
+                       bd=10, fg="Black", bg=self.bg_color)
+        F2.place(x=5, y=180, width=frame_width, height=frame_height)
+        
+        medical_products = [
+            ("Sanitizer", self.sanitizer),
+            ("Mask", self.mask),
+            ("Hand Gloves", self.hand_gloves),
+            ("Dettol", self.dettol),
+            ("Newsprin", self.newsprin),
+            ("Thermal Gun", self.thermal_gun)
+        ]
+        
+        for i, (name, var) in enumerate(medical_products):
+            lbl = Label(F2, text=name, font=('times new roman', 14, 'bold'), 
+                       bg=self.bg_color, fg="black")
+            lbl.grid(row=i, column=0, padx=10, pady=10, sticky='w')
+            ent = Entry(F2, width=entry_width, textvariable=var, 
+                       font=('times new roman', 14, 'bold'), bd=5, relief=GROOVE, bg=self.entry_bg)
+            ent.grid(row=i, column=1, padx=10, pady=10)
+        
+        # Grocery Frame
+        F3 = LabelFrame(self.root, text="Grocery Items", font=('times new roman', 15, 'bold'), 
+                       bd=10, fg="Black", bg=self.bg_color)
+        F3.place(x=340, y=180, width=frame_width, height=frame_height)
+        
+        grocery_products = [
+            ("Rice", self.rice),
+            ("Food Oil", self.food_oil),
+            ("Wheat", self.wheat),
+            ("Daal", self.daal),
+            ("Flour", self.flour),
+            ("Maggi", self.maggi)
+        ]
+        
+        for i, (name, var) in enumerate(grocery_products):
+            lbl = Label(F3, text=name, font=('times new roman', 14, 'bold'), 
+                       bg=self.bg_color, fg="black")
+            lbl.grid(row=i, column=0, padx=10, pady=10, sticky='w')
+            ent = Entry(F3, width=entry_width, textvariable=var, 
+                       font=('times new roman', 14, 'bold'), bd=5, relief=GROOVE, bg=self.entry_bg)
+            ent.grid(row=i, column=1, padx=10, pady=10)
+        
+        # Cold Drinks Frame
+        F4 = LabelFrame(self.root, text="Cold Drinks", font=('times new roman', 15, 'bold'), 
+                       bd=10, fg="Black", bg=self.bg_color)
+        F4.place(x=675, y=180, width=frame_width, height=frame_height)
+        
+        drinks_products = [
+            ("Sprite", self.sprite),
+            ("Limka", self.limka),
+            ("Mazza", self.mazza),
+            ("Coke", self.coke),
+            ("Fanta", self.fanta),
+            ("Mountain Duo", self.mountain_duo)
+        ]
+        
+        for i, (name, var) in enumerate(drinks_products):
+            lbl = Label(F4, text=name, font=('times new roman', 14, 'bold'), 
+                       bg=self.bg_color, fg="black")
+            lbl.grid(row=i, column=0, padx=10, pady=10, sticky='w')
+            ent = Entry(F4, width=entry_width, textvariable=var, 
+                       font=('times new roman', 14, 'bold'), bd=5, relief=GROOVE, bg=self.entry_bg)
+            ent.grid(row=i, column=1, padx=10, pady=10)
+
+    def create_bill_area(self):
+        F5 = Frame(self.root, bd=10, relief=GROOVE)
+        F5.place(x=1010, y=180, width=350, height=380)
+        
+        bill_title = Label(F5, text="Bill Area", font='arial 15 bold', bd=7, relief=GROOVE)
+        bill_title.pack(fill=X)
+        
+        scroll_y = Scrollbar(F5, orient=VERTICAL)
+        self.txtarea = Text(F5, yscrollcommand=scroll_y.set, font=('arial', 12), bd=5, relief=GROOVE)
+        scroll_y.pack(side=RIGHT, fill=Y)
+        scroll_y.config(command=self.txtarea.yview)
+        self.txtarea.pack(fill=BOTH, expand=1)
+
+    def create_totals_frame(self):
+        F6 = LabelFrame(self.root, text="Bill Summary", font=('times new roman', 14, 'bold'), 
+                       bd=10, fg="Black", bg=self.bg_color)
+        F6.place(x=0, y=560, relwidth=1, height=140)
+        
+        # Price Labels and Entries
+        price_labels = [
+            ("Total Medical Price", self.medical_price, 0, 0),
+            ("Total Grocery Price", self.grocery_price, 1, 0),
+            ("Total Cold Drinks Price", self.cold_drinks_price, 2, 0),
+            ("Medical Tax", self.medical_tax, 0, 2),
+            ("Grocery Tax", self.grocery_tax, 1, 2),
+            ("Cold Drinks Tax", self.cold_drinks_tax, 2, 2)
+        ]
+        
+        for text, var, row, col in price_labels:
+            lbl = Label(F6, text=text, font=('times new roman', 12, 'bold'), 
+                       bg=self.bg_color, fg="black")
+            lbl.grid(row=row, column=col, padx=10, pady=2, sticky='w')
+            ent = Entry(F6, width=15, textvariable=var, font='arial 10 bold', 
+                       bd=5, relief=GROOVE, bg=self.entry_bg, state='readonly')
+            ent.grid(row=row, column=col+1, padx=5, pady=2)
+        
+        # Buttons Frame
+        btn_f = Frame(F6, bd=7, relief=GROOVE, bg=self.bg_color)
+        btn_f.place(x=750, width=580, height=105)
+        
+        buttons = [
+            ("Total", self.total, 0, 0),
+            ("Generate Bill", self.bill_area, 0, 1),
+            ("Clear", self.clear_data, 0, 2),
+            ("Exit", self.exit_app, 0, 3)
+        ]
+        
+        for text, command, row, col in buttons:
+            btn = Button(btn_f, command=command, text=text, bg=self.button_bg, 
+                        bd=3, fg=self.button_fg, pady=10, width=12, font='arial 12 bold')
+            btn.grid(row=row, column=col, padx=5, pady=5)
+
+    def total(self):
+        # Medical Calculations
+        self.m_s_p = self.sanitizer.get() * 2
+        self.m_m_p = self.mask.get() * 5
+        self.m_h_g_p = self.hand_gloves.get() * 12
+        self.m_d_p = self.dettol.get() * 30
+        self.m_n_p = self.newsprin.get() * 5
+        self.m_t_g_p = self.thermal_gun.get() * 15
+        self.total_medical_price = float(
+            self.m_m_p + self.m_h_g_p + self.m_d_p + 
+            self.m_n_p + self.m_t_g_p + self.m_s_p
+        )
+        self.medical_price.set("Rs. %.2f" % self.total_medical_price)
+        self.c_tax = round((self.total_medical_price * 0.05), 2)
+        self.medical_tax.set("Rs. %.2f" % self.c_tax)
+        
+        # Grocery Calculations
+        self.g_r_p = self.rice.get() * 10
+        self.g_f_o_p = self.food_oil.get() * 10
+        self.g_w_p = self.wheat.get() * 10
+        self.g_d_p = self.daal.get() * 6
+        self.g_f_p = self.flour.get() * 8
+        self.g_m_p = self.maggi.get() * 5
+        self.total_grocery_price = float(
+            self.g_r_p + self.g_f_o_p + self.g_w_p + 
+            self.g_d_p + self.g_f_p + self.g_m_p
+        )
+        self.grocery_price.set("Rs. %.2f" % self.total_grocery_price)
+        self.g_tax = round((self.total_grocery_price * 0.05), 2)
+        self.grocery_tax.set("Rs. %.2f" % self.g_tax)
+        
+        # Cold Drinks Calculations
+        self.c_d_s_p = self.sprite.get() * 10
+        self.c_d_l_p = self.limka.get() * 10
+        self.c_d_m_p = self.mazza.get() * 10
+        self.c_d_c_p = self.coke.get() * 10
+        self.c_d_f_p = self.fanta.get() * 10
+        self.c_m_d = self.mountain_duo.get() * 10
+        self.total_cold_drinks_price = float(
+            self.c_d_s_p + self.c_d_l_p + self.c_d_m_p + 
+            self.c_d_c_p + self.c_d_f_p + self.c_m_d
+        )
+        self.cold_drinks_price.set("Rs. %.2f" % self.total_cold_drinks_price)
+        self.c_d_tax = round((self.total_cold_drinks_price * 0.1), 2)
+        self.cold_drinks_tax.set("Rs. %.2f" % self.c_d_tax)
+        
+        # Total Bill
+        self.total_bill = float(
+            self.total_medical_price + self.total_grocery_price + 
+            self.total_cold_drinks_price + self.c_tax + 
+            self.g_tax + self.c_d_tax
+        )
+
+    def welcome_bill(self):
+        self.txtarea.delete('1.0', END)
+        self.txtarea.insert(END, "\tWelcome to Retail Billing\n")
+        self.txtarea.insert(END, f"\nBill Number: {self.bill_no.get()}")
+        self.txtarea.insert(END, f"\nCustomer Name: {self.c_name.get()}")
+        self.txtarea.insert(END, f"\nPhone Number: {self.c_phone.get()}")
+        self.txtarea.insert(END, f"\n================================\n")
+        self.txtarea.insert(END, "Products\t\tQTY\t\tPrice\n")
+        self.txtarea.insert(END, "================================\n")
+
+    def bill_area(self):
+        if not self.c_name.get() or not self.c_phone.get():
+            messagebox.showerror("Error", "Customer Details Are Required")
+            return
+        if (self.medical_price.get() == "" and 
+            self.grocery_price.get() == "" and 
+            self.cold_drinks_price.get() == ""):
+            messagebox.showerror("Error", "No Products Purchased")
+            return
+            
+        self.welcome_bill()
+        
+        # Medical Products
+        medical_products = [
+            ("Sanitizer", self.sanitizer.get(), self.m_s_p),
+            ("Mask", self.mask.get(), self.m_m_p),
+            ("Hand Gloves", self.hand_gloves.get(), self.m_h_g_p),
+            ("Dettol", self.dettol.get(), self.m_d_p),
+            ("Newsprin", self.newsprin.get(), self.m_n_p),
+            ("Thermal Gun", self.thermal_gun.get(), self.m_t_g_p)
+        ]
+        
+        for name, qty, price in medical_products:
+            if qty != 0:
+                self.txtarea.insert(END, f"{name}\t\t{qty}\t\tRs.{price}\n")
+        
+        # Grocery Products
+        grocery_products = [
+            ("Rice", self.rice.get(), self.g_r_p),
+            ("Food Oil", self.food_oil.get(), self.g_f_o_p),
+            ("Wheat", self.wheat.get(), self.g_w_p),
+            ("Daal", self.daal.get(), self.g_d_p),
+            ("Flour", self.flour.get(), self.g_f_p),
+            ("Maggi", self.maggi.get(), self.g_m_p)
+        ]
+        
+        for name, qty, price in grocery_products:
+            if qty != 0:
+                self.txtarea.insert(END, f"{name}\t\t{qty}\t\tRs.{price}\n")
+        
+        # Cold Drinks
+        drinks_products = [
+            ("Sprite", self.sprite.get(), self.c_d_s_p),
+            ("Limka", self.limka.get(), self.c_d_l_p),
+            ("Mazza", self.mazza.get(), self.c_d_m_p),
+            ("Coke", self.coke.get(), self.c_d_c_p),
+            ("Fanta", self.fanta.get(), self.c_d_f_p),
+            ("Mountain Duo", self.mountain_duo.get(), self.c_m_d)
+        ]
+        
+        for name, qty, price in drinks_products:
+            if qty != 0:
+                self.txtarea.insert(END, f"{name}\t\t{qty}\t\tRs.{price}\n")
+        
+        self.txtarea.insert(END, "================================\n")
+        
+        # Taxes
+        if float(self.medical_tax.get()[3:]) > 0:
+            self.txtarea.insert(END, f"Medical Tax\t\t\t{self.medical_tax.get()}\n")
+        if float(self.grocery_tax.get()[3:]) > 0:
+            self.txtarea.insert(END, f"Grocery Tax\t\t\t{self.grocery_tax.get()}\n")
+        if float(self.cold_drinks_tax.get()[3:]) > 0:
+            self.txtarea.insert(END, f"Cold Drinks Tax\t\t\t{self.cold_drinks_tax.get()}\n")
+        
+        self.txtarea.insert(END, "================================\n")
+        self.txtarea.insert(END, f"Total Bill:\t\t\tRs.{self.total_bill:.2f}\n")
+        self.txtarea.insert(END, "================================\n")
+        self.txtarea.insert(END, "\tThank You For Shopping!\n")
+        
+        self.save_bill()
+
+    def save_bill(self):
+        op = messagebox.askyesno("Save Bill", "Do you want to save the bill?")
+        if op:
+            bill_data = self.txtarea.get('1.0', END)
+            current_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            cursor = self.conn.cursor()
+            cursor.execute('''
+                INSERT INTO bills (bill_no, customer_name, phone, date, bill_data, total_amount)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (
+                int(self.bill_no.get()),
+                self.c_name.get(),
+                self.c_phone.get(),
+                current_date,
+                bill_data,
+                self.total_bill
+            ))
+            self.conn.commit()
+            
+            messagebox.showinfo("Saved", f"Bill no: {self.bill_no.get()} Saved Successfully")
+
+    def find_bill(self):
+        if not self.search_bill.get():
+            messagebox.showerror("Error", "Please enter a bill number to search")
+            return
+            
+        cursor = self.conn.cursor()
+        cursor.execute('SELECT bill_data FROM bills WHERE bill_no = ?', (int(self.search_bill.get()),))
+        result = cursor.fetchone()
+        
+        if result:
+            self.txtarea.delete('1.0', END)
+            self.txtarea.insert(END, result[0])
+        else:
+            messagebox.showerror("Error", "Invalid Bill Number")
+
+    def view_all_bills(self):
+        top = Toplevel(self.root)
+        top.title("All Bills")
+        top.geometry("800x600")
+        
+        scroll_y = Scrollbar(top, orient=VERTICAL)
+        text_area = Text(top, yscrollcommand=scroll_y.set, font=('arial', 12), bd=5, relief=GROOVE)
+        scroll_y.pack(side=RIGHT, fill=Y)
+        scroll_y.config(command=text_area.yview)
+        text_area.pack(fill=BOTH, expand=1)
+        
+        cursor = self.conn.cursor()
+        cursor.execute('SELECT bill_no, customer_name, date, total_amount FROM bills ORDER BY bill_no DESC')
+        bills = cursor.fetchall()
+        
+        if not bills:
+            text_area.insert(END, "No bills found in database")
+            return
+            
+        text_area.insert(END, "\t\tAll Bills\n")
+        text_area.insert(END, "===============================================\n")
+        text_area.insert(END, "Bill No\tCustomer\tDate\t\t\tAmount\n")
+        text_area.insert(END, "===============================================\n")
+        
+        for bill in bills:
+            text_area.insert(END, f"{bill[0]}\t{bill[1]}\t{bill[2]}\tRs.{bill[3]:.2f}\n")
+        
+        text_area.insert(END, "===============================================\n")
+        
+        def view_selected_bill():
+            selected = text_area.get("sel.first", "sel.last").split()[0]
+            if selected.isdigit():
+                self.search_bill.set(selected)
+                self.find_bill()
+                top.destroy()
+        
+        view_btn = Button(top, text="View Selected Bill", command=view_selected_bill,
+                         bg=self.button_bg, fg=self.button_fg, font=('arial', 12, 'bold'))
+        view_btn.pack(pady=10)
+
+    def clear_data(self):
+        op = messagebox.askyesno("Clear", "Do you really want to clear all data?")
+        if op:
+            # Reset all variables
+            for var in [self.sanitizer, self.mask, self.hand_gloves, self.dettol, 
+                       self.newsprin, self.thermal_gun, self.rice, self.food_oil, 
+                       self.wheat, self.daal, self.flour, self.maggi, self.sprite, 
+                       self.limka, self.mazza, self.coke, self.fanta, self.mountain_duo]:
+                var.set(0)
+                
+            for var in [self.medical_price, self.grocery_price, self.cold_drinks_price,
+                       self.medical_tax, self.grocery_tax, self.cold_drinks_tax,
+                       self.c_name, self.c_phone, self.search_bill]:
+                var.set("")
+                
+            # Generate new bill number
+            x = random.randint(1000, 9999)
+            self.bill_no.set(str(x))
+            
+            self.welcome_bill()
+
+    def exit_app(self):
+        op = messagebox.askyesno("Exit", "Do you really want to exit?")
+        if op:
+            self.conn.close()
+            self.root.destroy()
+
+root = Tk()
+obj = Bill_App(root)
+root.mainloop()

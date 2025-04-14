@@ -1,0 +1,320 @@
+import pygame
+import math
+import random
+import sys
+
+# Initialize pygame
+pygame.init()
+
+# Game settings
+WIDTH, HEIGHT = 800, 400
+FPS = 60
+BALL_RADIUS = 10
+POCKET_RADIUS = 20  # Slightly larger pockets
+FRICTION = 0.985    # More realistic friction
+MIN_VELOCITY = 0.1  # Threshold for stopping balls
+MAX_SHOT_POWER = 15 # Limit maximum shot power
+COLORS = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), 
+          (255, 165, 0), (128, 0, 128), (0, 255, 255), (255, 192, 203)]
+
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("8 Ball Pool Game")
+
+# Load sound effects
+try:
+    BALL_HIT_SOUND = pygame.mixer.Sound("ball_hit.wav")
+    POCKET_SOUND = pygame.mixer.Sound("pocket.wav")
+except:
+    # Create dummy sound objects if files not found
+    class DummySound:
+        def play(self): pass
+    BALL_HIT_SOUND = DummySound()
+    POCKET_SOUND = DummySound()
+
+clock = pygame.time.Clock()
+
+# Table border
+TABLE_BORDER = 20
+
+# Ball class with improved physics
+class Ball:
+    def __init__(self, x, y, color, is_cue=False):
+        self.x = x
+        self.y = y
+        self.vx = 0
+        self.vy = 0
+        self.color = color
+        self.is_cue = is_cue
+        self.in_pocket = False
+        self.last_collision = 0  # For sound cooldown
+
+    def draw(self):
+        if not self.in_pocket:
+            # Draw shadow
+            pygame.draw.circle(screen, (50, 50, 50), 
+                              (int(self.x) + 2, int(self.y) + 2), 
+                              BALL_RADIUS)
+            # Draw ball with highlight
+            pygame.draw.circle(screen, self.color, 
+                              (int(self.x), int(self.y)), 
+                              BALL_RADIUS)
+            if self.is_cue:
+                # Cue ball highlight
+                highlight_pos = (
+                    int(self.x - BALL_RADIUS * 0.4),
+                    int(self.y - BALL_RADIUS * 0.4)
+                )
+                pygame.draw.circle(screen, (255, 255, 255), 
+                                  highlight_pos, 
+                                  int(BALL_RADIUS * 0.3))
+
+    def update(self):
+        if self.in_pocket:
+            return
+            
+        # Apply friction
+        self.vx *= FRICTION
+        self.vy *= FRICTION
+        
+        # Update position
+        self.x += self.vx
+        self.y += self.vy
+
+        # Stop very slow balls
+        if math.hypot(self.vx, self.vy) < MIN_VELOCITY:
+            self.vx = 0
+            self.vy = 0
+
+        # Wall collisions with realistic bounce
+        if self.x - BALL_RADIUS < TABLE_BORDER:
+            self.x = TABLE_BORDER + BALL_RADIUS
+            self.vx *= -0.9  # Energy loss on bounce
+        elif self.x + BALL_RADIUS > WIDTH - TABLE_BORDER:
+            self.x = WIDTH - TABLE_BORDER - BALL_RADIUS
+            self.vx *= -0.9
+            
+        if self.y - BALL_RADIUS < TABLE_BORDER:
+            self.y = TABLE_BORDER + BALL_RADIUS
+            self.vy *= -0.9
+        elif self.y + BALL_RADIUS > HEIGHT - TABLE_BORDER:
+            self.y = HEIGHT - TABLE_BORDER - BALL_RADIUS
+            self.vy *= -0.9
+
+        # Pocket detection
+        for pocket in pockets:
+            if math.hypot(self.x - pocket[0], self.y - pocket[1]) < POCKET_RADIUS:
+                self.in_pocket = True
+                self.vx = 0
+                self.vy = 0
+                if pygame.time.get_ticks() - self.last_collision > 100:  # Sound cooldown
+                    POCKET_SOUND.play()
+                break
+
+# Create balls
+balls = []
+
+# Cue ball
+cue_ball = Ball(150, HEIGHT // 2, (255, 255, 255), is_cue=True)
+balls.append(cue_ball)
+
+# Other balls in triangle formation with realistic spacing
+start_x, start_y = 600, HEIGHT // 2
+rows = 5
+i = 0
+for row in range(rows):
+    for col in range(row + 1):
+        x = start_x + row * (BALL_RADIUS * 2 * 0.866)  # Hexagonal packing
+        y = start_y + (col - row / 2) * (BALL_RADIUS * 2)
+        balls.append(Ball(x, y, COLORS[i % len(COLORS)]))
+        i += 1
+
+# Pockets with better placement
+pockets = [
+    (TABLE_BORDER, TABLE_BORDER),
+    (WIDTH // 2, TABLE_BORDER - 5),  # Slightly raised middle pockets
+    (WIDTH - TABLE_BORDER, TABLE_BORDER),
+    (TABLE_BORDER, HEIGHT - TABLE_BORDER),
+    (WIDTH // 2, HEIGHT - TABLE_BORDER + 5),
+    (WIDTH - TABLE_BORDER, HEIGHT - TABLE_BORDER)
+]
+
+def collide(b1, b2):
+    if b1.in_pocket or b2.in_pocket:
+        return
+        
+    dx = b2.x - b1.x
+    dy = b2.y - b1.y
+    dist = math.hypot(dx, dy)
+    
+    if dist < 2 * BALL_RADIUS:
+        # Play collision sound if not too recent
+        if pygame.time.get_ticks() - b1.last_collision > 50 and \
+           pygame.time.get_ticks() - b2.last_collision > 50:
+            BALL_HIT_SOUND.play()
+            b1.last_collision = pygame.time.get_ticks()
+            b2.last_collision = pygame.time.get_ticks()
+        
+        angle = math.atan2(dy, dx)
+        
+        # Calculate initial velocities in the collision frame
+        v1 = math.hypot(b1.vx, b1.vy)
+        v2 = math.hypot(b2.vx, b2.vy)
+        dir1 = math.atan2(b1.vy, b1.vx)
+        dir2 = math.atan2(b2.vy, b2.vx)
+        
+        # More realistic collision physics
+        new_v1 = v1 * math.cos(dir1 - angle)
+        new_v2 = v2 * math.cos(dir2 - angle)
+        
+        # Exchange velocities along the line of collision
+        b1.vx = v1 * math.cos(dir1 - (angle + math.pi/2)) * math.cos(angle + math.pi/2) + new_v2 * math.cos(angle)
+        b1.vy = v1 * math.cos(dir1 - (angle + math.pi/2)) * math.sin(angle + math.pi/2) + new_v2 * math.sin(angle)
+        b2.vx = v2 * math.cos(dir2 - (angle + math.pi/2)) * math.cos(angle + math.pi/2) + new_v1 * math.cos(angle)
+        b2.vy = v2 * math.cos(dir2 - (angle + math.pi/2)) * math.sin(angle + math.pi/2) + new_v1 * math.sin(angle)
+        
+        # Add some randomness to simulate imperfections
+        b1.vx += random.uniform(-0.2, 0.2)
+        b1.vy += random.uniform(-0.2, 0.2)
+        b2.vx += random.uniform(-0.2, 0.2)
+        b2.vy += random.uniform(-0.2, 0.2)
+        
+        # Separate balls to prevent sticking
+        overlap = 2 * BALL_RADIUS - dist
+        b1.x -= math.cos(angle) * overlap / 2
+        b1.y -= math.sin(angle) * overlap / 2
+        b2.x += math.cos(angle) * overlap / 2
+        b2.y += math.sin(angle) * overlap / 2
+
+# Game state
+game_state = "aiming"  # "aiming", "shooting", "game_over"
+turn_timeout = 0
+
+def all_balls_stopped():
+    return all(math.hypot(ball.vx, ball.vy) < MIN_VELOCITY for ball in balls if not ball.in_pocket)
+
+def reset_after_pocket():
+    global game_state, turn_timeout
+    if cue_ball.in_pocket:
+        # Reset cue ball if it's pocketed
+        cue_ball.in_pocket = False
+        cue_ball.x = 150
+        cue_ball.y = HEIGHT // 2
+        cue_ball.vx = 0
+        cue_ball.vy = 0
+    game_state = "aiming"
+
+# Main game loop
+running = True
+while running:
+    # Process events
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                running = False
+                
+        # Mouse controls
+        elif event.type == pygame.MOUSEBUTTONDOWN and game_state == "aiming":
+            mouse_start = pygame.mouse.get_pos()
+            # Check if click is near cue ball
+            if math.hypot(mouse_start[0] - cue_ball.x, mouse_start[1] - cue_ball.y) < BALL_RADIUS * 2:
+                game_state = "dragging"
+                
+        elif event.type == pygame.MOUSEBUTTONUP and game_state == "dragging":
+            mouse_end = pygame.mouse.get_pos()
+            dx = mouse_start[0] - mouse_end[0]
+            dy = mouse_start[1] - mouse_end[1]
+            power = math.hypot(dx, dy) * 0.05
+            power = min(power, MAX_SHOT_POWER)  # Limit maximum power
+            
+            angle = math.atan2(dy, dx)
+            cue_ball.vx = math.cos(angle) * power
+            cue_ball.vy = math.sin(angle) * power
+            game_state = "shooting"
+            turn_timeout = pygame.time.get_ticks() + 5000  # 5 second timeout
+
+    # Update game state
+    current_time = pygame.time.get_ticks()
+    
+    if game_state == "shooting":
+        if all_balls_stopped() or current_time > turn_timeout:
+            reset_after_pocket()
+
+    # Update physics
+    for ball in balls:
+        ball.update()
+
+    # Ball collisions
+    for i in range(len(balls)):
+        for j in range(i + 1, len(balls)):
+            collide(balls[i], balls[j])
+
+    # Drawing
+    screen.fill((0, 50, 0))  # Dark green table
+    
+    # Draw wooden border
+    pygame.draw.rect(screen, (139, 69, 19), (0, 0, WIDTH, TABLE_BORDER))
+    pygame.draw.rect(screen, (139, 69, 19), (0, 0, TABLE_BORDER, HEIGHT))
+    pygame.draw.rect(screen, (139, 69, 19), (WIDTH - TABLE_BORDER, 0, TABLE_BORDER, HEIGHT))
+    pygame.draw.rect(screen, (139, 69, 19), (0, HEIGHT - TABLE_BORDER, WIDTH, TABLE_BORDER))
+    
+    # Draw table felt
+    pygame.draw.rect(screen, (0, 100, 0), 
+                    (TABLE_BORDER, TABLE_BORDER, 
+                     WIDTH - 2*TABLE_BORDER, HEIGHT - 2*TABLE_BORDER))
+    
+    # Draw pockets
+    for pocket in pockets:
+        pygame.draw.circle(screen, (0, 0, 0), pocket, POCKET_RADIUS)
+        pygame.draw.circle(screen, (50, 50, 50), pocket, POCKET_RADIUS - 2)
+    
+    # Draw balls
+    for ball in sorted(balls, key=lambda b: b.is_cue):  # Draw cue ball last
+        ball.draw()
+    
+    # Draw cue line
+    if game_state == "aiming":
+        mouse_pos = pygame.mouse.get_pos()
+        angle = math.atan2(mouse_pos[1] - cue_ball.y, mouse_pos[0] - cue_ball.x)
+        end_pos = (
+            cue_ball.x - math.cos(angle) * 50,
+            cue_ball.y - math.sin(angle) * 50
+        )
+        pygame.draw.line(screen, (255, 255, 255), (cue_ball.x, cue_ball.y), end_pos, 2)
+    elif game_state == "dragging":
+        mouse_pos = pygame.mouse.get_pos()
+        power = math.hypot(mouse_pos[0] - mouse_start[0], mouse_pos[1] - mouse_start[1]) * 0.05
+        power = min(power, MAX_SHOT_POWER)
+        angle = math.atan2(mouse_start[1] - mouse_pos[1], mouse_start[0] - mouse_pos[0])
+        
+        # Draw power meter
+        pygame.draw.line(screen, (255, 255, 255), 
+                         (cue_ball.x, cue_ball.y),
+                         (cue_ball.x + math.cos(angle) * power * 5,
+                          cue_ball.y + math.sin(angle) * power * 5), 
+                         3)
+        
+        # Draw guide line
+        guide_length = 200
+        pygame.draw.line(screen, (255, 255, 255, 100), 
+                         (cue_ball.x, cue_ball.y),
+                         (cue_ball.x + math.cos(angle) * guide_length,
+                          cue_ball.y + math.sin(angle) * guide_length), 
+                         1)
+    
+    # Draw game state text
+    font = pygame.font.SysFont(None, 24)
+    if game_state == "aiming":
+        text = font.render("Aim with mouse, click near cue ball to shoot", True, (255, 255, 255))
+    elif game_state == "dragging":
+        text = font.render("Drag to set power, release to shoot", True, (255, 255, 255))
+    else:
+        text = font.render("Waiting for balls to stop...", True, (255, 255, 255))
+    screen.blit(text, (10, 10))
+    
+    pygame.display.flip()
+    clock.tick(FPS)
+
+pygame.quit()
+sys.exit()
